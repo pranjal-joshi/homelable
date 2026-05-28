@@ -76,6 +76,9 @@ export function serializeNode(n: Node<NodeData>): Record<string, unknown> {
         ...n.data.custom_colors,
         width: n.measured?.width ?? n.width ?? 360,
         height: n.measured?.height ?? n.height ?? 240,
+        // Stash collapse state inside custom_colors so the API/YAML blob does
+        // not need a new column. Hoisted back to `data.collapsed` on load.
+        collapsed: n.data.collapsed ?? false,
       },
     }
   }
@@ -139,11 +142,15 @@ export function deserializeApiNode(
     const w = (n.custom_colors?.width as number | undefined) ?? 360
     const h = (n.custom_colors?.height as number | undefined) ?? 240
     const z = (n.custom_colors?.z_order as number | undefined) ?? 1
+    // Hoist persisted collapse flag from the custom_colors stash to a
+    // first-class field on NodeData. Tolerates legacy saves that already had
+    // it there from before the type was promoted.
+    const collapsed = Boolean(n.custom_colors?.collapsed)
     return {
       id: n.id,
       type: 'groupRect',
       position: { x: n.pos_x, y: n.pos_y },
-      data: n as unknown as NodeData,
+      data: { ...(n as unknown as NodeData), collapsed },
       width: w,
       height: h,
       zIndex: z - 10,

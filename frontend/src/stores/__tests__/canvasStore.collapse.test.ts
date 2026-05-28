@@ -19,21 +19,21 @@ describe('canvasStore - toggleNodeCollapsed', () => {
     })
 
     let zone = result.current.nodes.find((n) => n.id === 'zone-1')
-    expect(zone?.data.custom_colors?.collapsed).toBeUndefined()
+    expect(zone?.data.collapsed).toBeUndefined()
 
     act(() => {
       result.current.toggleNodeCollapsed('zone-1')
     })
 
     zone = result.current.nodes.find((n) => n.id === 'zone-1')
-    expect(zone?.data.custom_colors?.collapsed).toBe(true)
+    expect(zone?.data.collapsed).toBe(true)
 
     act(() => {
       result.current.toggleNodeCollapsed('zone-1')
     })
 
     zone = result.current.nodes.find((n) => n.id === 'zone-1')
-    expect(zone?.data.custom_colors?.collapsed).toBe(false)
+    expect(zone?.data.collapsed).toBe(false)
   })
 
   it('marks canvas as unsaved when toggling collapse', () => {

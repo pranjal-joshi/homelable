@@ -379,16 +379,7 @@ export const useCanvasStore = create<CanvasState>((set) => ({
     set((state) => ({
       nodes: state.nodes.map((n) =>
         n.id === id
-          ? {
-              ...n,
-              data: {
-                ...n.data,
-                custom_colors: {
-                  ...n.data.custom_colors,
-                  collapsed: !n.data.custom_colors?.collapsed,
-                },
-              },
-            }
+          ? { ...n, data: { ...n.data, collapsed: !n.data.collapsed } }
           : n
       ),
       hasUnsavedChanges: true,

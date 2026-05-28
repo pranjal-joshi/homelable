@@ -35,7 +35,7 @@ export function getVisibleNodeIds(nodes: Node<NodeData>[]): Set<string> {
     const id = queue.shift()!
     visible.add(id)
     const node = byId.get(id)
-    if (node && !node.data.custom_colors?.collapsed) {
+    if (node && !node.data.collapsed) {
       const children = childrenByParent.get(id)
       if (children) queue.push(...children)
     }
@@ -45,12 +45,58 @@ export function getVisibleNodeIds(nodes: Node<NodeData>[]): Set<string> {
 }
 
 /**
- * Filter edges to those whose source and target are both in `visibleIds`.
- * Edges crossing into a collapsed subtree are dropped.
+ * Rewire edges so that any endpoint inside a collapsed subtree is replaced
+ * with the nearest visible ancestor (the collapsed zone the user actually
+ * sees). Behaviour:
+ *
+ *  - Both endpoints visible → edge kept as-is.
+ *  - One endpoint hidden    → endpoint replaced by its nearest visible
+ *                             ancestor; edge surfaces as a "stub" on the
+ *                             collapsed zone so the connection is not lost.
+ *  - Both endpoints hidden under the *same* collapsed ancestor → dropped
+ *                             (would be a self-loop on the zone).
+ *  - Multiple original edges that rewire to the same (source, target) pair
+ *    are de-duplicated; only the first is kept. Prevents a 20-device Zigbee
+ *    mesh from rendering 20 stacked stub edges on the collapsed parent.
+ *
+ *  Edges with an endpoint whose ancestor chain never reaches a visible node
+ *  (orphaned reference) are dropped.
  */
-export function filterVisibleEdges(
+export function rewireEdgesForCollapse(
   edges: Edge<EdgeData>[],
+  nodes: Node<NodeData>[],
   visibleIds: Set<string>,
 ): Edge<EdgeData>[] {
-  return edges.filter((e) => visibleIds.has(e.source) && visibleIds.has(e.target))
+  const parentOf = new Map<string, string | undefined>()
+  for (const n of nodes) parentOf.set(n.id, n.parentId)
+
+  const nearestVisible = (id: string): string | null => {
+    let cur: string | undefined = id
+    // Walk up parentId chain until we hit a visible node or run out.
+    while (cur !== undefined) {
+      if (visibleIds.has(cur)) return cur
+      cur = parentOf.get(cur)
+    }
+    return null
+  }
+
+  const seen = new Set<string>()
+  const out: Edge<EdgeData>[] = []
+  for (const e of edges) {
+    const src = nearestVisible(e.source)
+    const tgt = nearestVisible(e.target)
+    if (src === null || tgt === null) continue
+    if (src === tgt) continue
+    const key = `${src}->${tgt}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    if (src === e.source && tgt === e.target) {
+      out.push(e)
+    } else {
+      // Endpoint moved → strip handle hints that referred to the original
+      // (hidden) node; let React Flow pick defaults on the visible ancestor.
+      out.push({ ...e, source: src, target: tgt, sourceHandle: null, targetHandle: null })
+    }
+  }
+  return out
 }

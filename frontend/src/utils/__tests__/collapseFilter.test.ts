@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { Edge, Node } from '@xyflow/react'
-import { getVisibleNodeIds, filterVisibleEdges } from '../collapseFilter'
+import { getVisibleNodeIds, rewireEdgesForCollapse } from '../collapseFilter'
 import type { EdgeData, NodeData } from '@/types'
 
 const mkNode = (
@@ -16,7 +16,7 @@ const mkNode = (
     type: parentId ? 'server' : 'groupRect',
     status: 'online',
     services: [],
-    ...(collapsed !== undefined ? { custom_colors: { collapsed } } : {}),
+    ...(collapsed !== undefined ? { collapsed } : {}),
   },
 })
 
@@ -91,30 +91,82 @@ describe('getVisibleNodeIds', () => {
   })
 })
 
-describe('filterVisibleEdges', () => {
-  it('keeps edges whose endpoints are both visible', () => {
-    const visible = new Set(['a', 'b'])
+describe('rewireEdgesForCollapse', () => {
+  it('keeps edges between two visible nodes unchanged (same reference)', () => {
+    const nodes = [mkNode('a'), mkNode('b')]
     const edges = [mkEdge('e1', 'a', 'b')]
-    expect(filterVisibleEdges(edges, visible)).toHaveLength(1)
+    const out = rewireEdgesForCollapse(edges, nodes, new Set(['a', 'b']))
+    expect(out).toHaveLength(1)
+    expect(out[0]).toBe(edges[0])
   })
 
-  it('drops an edge whose target is inside a collapsed subtree', () => {
-    const visible = new Set(['outside', 'zone']) // 'leaf' hidden
-    const edges = [
-      mkEdge('e-outside-leaf', 'outside', 'leaf'),
-      mkEdge('e-outside-zone', 'outside', 'zone'),
+  it('reroutes a cross-boundary edge to the collapsed ancestor', () => {
+    const nodes = [
+      mkNode('zone', undefined, true),
+      mkNode('leaf', 'zone'),
+      mkNode('outside'),
     ]
-    const out = filterVisibleEdges(edges, visible)
-    expect(out.map((e) => e.id)).toEqual(['e-outside-zone'])
+    const visible = getVisibleNodeIds(nodes)
+    const edges = [mkEdge('e1', 'outside', 'leaf')]
+    const out = rewireEdgesForCollapse(edges, nodes, visible)
+    expect(out).toHaveLength(1)
+    expect(out[0].source).toBe('outside')
+    expect(out[0].target).toBe('zone')
+    // Handle hints stripped when the endpoint moved.
+    expect(out[0].sourceHandle).toBeNull()
+    expect(out[0].targetHandle).toBeNull()
   })
 
-  it('drops an edge whose source is hidden', () => {
-    const visible = new Set(['b'])
+  it('drops an edge between two siblings inside the same collapsed zone (self-loop)', () => {
+    const nodes = [
+      mkNode('zone', undefined, true),
+      mkNode('a', 'zone'),
+      mkNode('b', 'zone'),
+    ]
+    const visible = getVisibleNodeIds(nodes)
     const edges = [mkEdge('e1', 'a', 'b')]
-    expect(filterVisibleEdges(edges, visible)).toHaveLength(0)
+    expect(rewireEdgesForCollapse(edges, nodes, visible)).toEqual([])
+  })
+
+  it('de-dupes multiple cross-boundary edges that rewire to the same pair', () => {
+    // 20-device Zigbee mesh: many edges from outside coordinator to leaves
+    // inside a collapsed zone should collapse to a single stub.
+    const nodes = [
+      mkNode('zone', undefined, true),
+      mkNode('coord'),
+      ...Array.from({ length: 5 }, (_, i) => mkNode(`leaf-${i}`, 'zone')),
+    ]
+    const visible = getVisibleNodeIds(nodes)
+    const edges = Array.from({ length: 5 }, (_, i) =>
+      mkEdge(`e-${i}`, 'coord', `leaf-${i}`),
+    )
+    const out = rewireEdgesForCollapse(edges, nodes, visible)
+    expect(out).toHaveLength(1)
+    expect(out[0].source).toBe('coord')
+    expect(out[0].target).toBe('zone')
+  })
+
+  it('walks the chain to the nearest visible ancestor (nested collapse)', () => {
+    const nodes = [
+      mkNode('root', undefined, true),
+      mkNode('mid', 'root'),
+      mkNode('leaf', 'mid'),
+      mkNode('outside'),
+    ]
+    const visible = getVisibleNodeIds(nodes)
+    const edges = [mkEdge('e1', 'outside', 'leaf')]
+    const out = rewireEdgesForCollapse(edges, nodes, visible)
+    expect(out[0].target).toBe('root')
+  })
+
+  it('drops an edge whose endpoint has no visible ancestor', () => {
+    const nodes = [mkNode('orphan-parent', undefined, true)]
+    const visible = new Set<string>() // nothing visible at all
+    const edges = [mkEdge('e1', 'ghost', 'orphan-parent')]
+    expect(rewireEdgesForCollapse(edges, nodes, visible)).toEqual([])
   })
 
   it('returns an empty array for empty input', () => {
-    expect(filterVisibleEdges([], new Set(['a']))).toEqual([])
+    expect(rewireEdgesForCollapse([], [], new Set())).toEqual([])
   })
 })

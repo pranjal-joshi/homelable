@@ -17,7 +17,7 @@ import '@xyflow/react/dist/style.css'
 import { useCanvasStore } from '@/stores/canvasStore'
 import { useThemeStore } from '@/stores/themeStore'
 import { THEMES } from '@/utils/themes'
-import { getVisibleNodeIds, filterVisibleEdges } from '@/utils/collapseFilter'
+import { getVisibleNodeIds, rewireEdgesForCollapse } from '@/utils/collapseFilter'
 import { nodeTypes } from './nodes/nodeTypes'
 import { edgeTypes } from './edges/edgeTypes'
 import { SearchBar } from './SearchBar'
@@ -63,8 +63,8 @@ export function CanvasContainer({ onConnect: onConnectProp, onEdgeDoubleClick, o
     [nodes, visibleNodeIds],
   )
   const visibleEdges = useMemo(
-    () => filterVisibleEdges(edges, visibleNodeIds),
-    [edges, visibleNodeIds],
+    () => rewireEdgesForCollapse(edges, nodes, visibleNodeIds),
+    [edges, nodes, visibleNodeIds],
   )
 
   const onNodeClick = useCallback((e: React.MouseEvent, node: Node<NodeData>) => {

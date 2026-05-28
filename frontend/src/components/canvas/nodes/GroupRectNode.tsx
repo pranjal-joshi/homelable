@@ -42,7 +42,7 @@ export function GroupRectNode({ id, data, selected }: NodeProps<Node<NodeData>>)
   const [hovered, setHovered] = useState(false)
 
   const rc = data.custom_colors ?? {}
-  const isCollapsed = rc.collapsed ?? false
+  const isCollapsed = data.collapsed ?? false
   const borderColor = rc.border ?? '#00d4ff'
   const borderStyle = rc.border_style ?? 'solid'
   const borderWidth = rc.border_width ?? 2
