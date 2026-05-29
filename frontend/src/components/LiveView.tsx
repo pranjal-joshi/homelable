@@ -10,7 +10,7 @@
  * Clicking a node with an IP opens http://<ip> in a new tab.
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   ReactFlowProvider,
   ReactFlow,
@@ -28,6 +28,7 @@ import { THEMES } from '@/utils/themes'
 import { nodeTypes } from '@/components/canvas/nodes/nodeTypes'
 import { edgeTypes } from '@/components/canvas/edges/edgeTypes'
 import { deserializeApiNode, deserializeApiEdge, type ApiNode, type ApiEdge } from '@/utils/canvasSerializer'
+import { computeCollapseInfo, rewireEdgesForCollapse } from '@/utils/collapseFilter'
 import { liveviewApi } from '@/api/client'
 import type { NodeData, CustomStyleDef } from '@/types'
 
@@ -108,6 +109,18 @@ function LiveViewCanvas() {
     if (ip) window.open(`http://${ip}`, '_blank', 'noopener,noreferrer')
   }, [])
 
+  // Apply collapse-state filtering — same pipeline the editor canvas uses,
+  // so a collapsed group/zone hides its contents in live view too.
+  const collapseInfo = useMemo(() => computeCollapseInfo(nodes), [nodes])
+  const visibleNodes = useMemo(
+    () => nodes.filter((n) => collapseInfo.visibleIds.has(n.id)),
+    [nodes, collapseInfo],
+  )
+  const visibleEdges = useMemo(
+    () => rewireEdgesForCollapse(edges, nodes, collapseInfo.visibleIds, collapseInfo.hiddenBy),
+    [edges, nodes, collapseInfo],
+  )
+
   if (viewState === 'loading') {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-[#0d1117] text-[#8b949e]">
@@ -136,8 +149,8 @@ function LiveViewCanvas() {
   return (
     <div className="w-full h-screen" style={{ background: theme.colors.canvasBackground }}>
       <ReactFlow
-        nodes={nodes}
-        edges={edges}
+        nodes={visibleNodes}
+        edges={visibleEdges}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         nodesDraggable={false}
