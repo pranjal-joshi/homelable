@@ -118,7 +118,7 @@ export default function App() {
     } catch {
       loadCanvas(demoNodes, demoEdges)
     }
-  }, [loadCanvas, setTheme, setCustomStyle, demoNodes, demoEdges])
+  }, [loadCanvas, setTheme, setCustomStyle])
 
   const loadDesignsAndCanvas = useCallback(async () => {
     if (STANDALONE) return
@@ -135,7 +135,7 @@ export default function App() {
       // If API fails (e.g. fresh DB with no designs), fall back to demo data
       loadCanvas(demoNodes, demoEdges)
     }
-  }, [setDesigns, setActiveDesign, loadCanvasFromApi, activeDesignId, demoNodes, demoEdges])
+  }, [setDesigns, setActiveDesign, loadCanvasFromApi, activeDesignId, loadCanvas])
 
   // Load canvas on auth (or immediately in standalone mode)
   useEffect(() => {

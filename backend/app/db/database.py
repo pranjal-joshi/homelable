@@ -186,7 +186,8 @@ async def init_db() -> None:
         # Seed default Network Topology design if designs table is empty
         _default_design_id = str(_uuid_mod.uuid4())
         row = await conn.exec_driver_sql("SELECT COUNT(*) FROM designs")
-        count = (row.fetchone())[0]
+        count_row = row.fetchone()
+        count = count_row[0] if count_row else 0
         if count == 0:
             await conn.exec_driver_sql(
                 "INSERT INTO designs (id, name, design_type, created_at, updated_at) "
