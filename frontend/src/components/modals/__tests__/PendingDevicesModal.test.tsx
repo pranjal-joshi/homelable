@@ -99,6 +99,14 @@ describe('PendingDevicesModal', () => {
     expect(screen.getByText('living-room-bulb')).toBeInTheDocument()
   })
 
+  it('closes via the X button (routes through DialogClose, not a raw onClick)', async () => {
+    const onClose = vi.fn()
+    render(<PendingDevicesModal open onClose={onClose} />)
+    await waitFor(() => expect(screen.getByTestId('pending-card-dev-a')).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
   it('shows source chip ZIGBEE for zigbee device', async () => {
     render(<PendingDevicesModal {...baseProps} />)
     await waitFor(() => expect(screen.getByTestId('pending-card-dev-a')).toBeInTheDocument())
